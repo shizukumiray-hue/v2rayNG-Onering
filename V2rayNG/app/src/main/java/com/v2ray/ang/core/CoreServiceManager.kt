@@ -40,6 +40,7 @@ import libv2ray.CoreController
 // import libv2ray.ProcessFinder // Commented for Onering compatibility
 import java.lang.ref.SoftReference
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 
 object CoreServiceManager {
 
@@ -51,8 +52,7 @@ object CoreServiceManager {
     private var browserDialer: IDialerService? = null
     private var networkMonitor: NetworkMonitor? = null
 
-    @Volatile
-    private var isReloading = false
+    private val isReloading = AtomicBoolean(false)
 
     /** Tun descriptor the core was started with, null in the proxy only and root run modes. */
     private var currentVpnInterface: ParcelFileDescriptor? = null
@@ -255,14 +255,13 @@ object CoreServiceManager {
      */
     @Synchronized
     private fun reloadCore(): Boolean {
-        if (isReloading) return false
-        val service = getService() ?: return false
-        if (!isRunning()) return false
+        if (!isReloading.compareAndSet(false, true)) return false
+        val service = getService() ?: return false.also { isReloading.set(false) }
+        if (!isRunning()) return false.also { isReloading.set(false) }
 
         return try {
             val tunFd = currentVpnInterface
 
-            isReloading = true
             LogUtil.i(AppConfig.TAG, "StartCore-Manager: Core reload start...")
 
             coreController.stopLoop()
@@ -276,7 +275,7 @@ object CoreServiceManager {
             MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, message)
             false
         } finally {
-            isReloading = false
+            isReloading.set(false)
         }
     }
 
@@ -298,11 +297,12 @@ object CoreServiceManager {
      * Also fetches remote IP information if the delay test was successful.
      */
     private fun measureV2rayDelay() {
-        if (!isRunning()) {
-            return
-        }
-
         CoroutineScope(Dispatchers.IO).launch {
+            // Check isRunning inside coroutine to avoid TOCTOU race condition
+            if (!isRunning()) {
+                return@launch
+            }
+            
             val service = getService() ?: return@launch
             var time = -1L
             var errorStr = ""
