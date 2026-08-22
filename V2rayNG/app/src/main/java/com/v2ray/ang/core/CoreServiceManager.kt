@@ -155,8 +155,8 @@ object CoreServiceManager {
         if (dialerAddr.isNotNullEmpty()) {
             CoreNativeManager.reconcileBrowserDialer(dialerAddr)
         }
-        // Pass tunFd to startLoop for proper JNI signature
-        coreController.startLoop(result.content, tunFd)
+        // AAR binary only supports 1 parameter (config string). tunFd calculation kept for future AAR update.
+        coreController.startLoop(result.content)
 
         if (!isRunning()) {
             error("Core failed to start")
