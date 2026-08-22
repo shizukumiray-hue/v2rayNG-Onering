@@ -281,33 +281,8 @@ object CoreServiceManager {
         // The stats manager is gone once the core stops, querying it then reaches into freed state.
         if (!isRunning()) return emptyList()
 
-        // Commented for Onering compatibility - API not available
-        // val payload = coreController.queryAllOutboundTrafficStats()
-        
-        // Return empty list for now (Onering doesn't support this API)
+        // Onering doesn't support queryAllOutboundTrafficStats API
         return emptyList()
-        
-        /* Original code - commented for Onering
-        val result = ArrayList<OutboundTrafficStat>()
-
-        payload.split(';').forEach { entry ->
-            if (entry.isBlank()) return@forEach
-
-            val parts = entry.split(',', limit = 3)
-            if (parts.size != 3) return@forEach
-
-            val value = parts[2].toLongOrNull() ?: return@forEach
-
-            result.add(
-                OutboundTrafficStat(
-                    tag = parts[0],
-                    direction = parts[1],
-                    value = value,
-                )
-            )
-        }
-//        LogUtil.d(AppConfig.TAG, "Queried outbound traffic stats: $result")
-        return result
     }
 
     /**
