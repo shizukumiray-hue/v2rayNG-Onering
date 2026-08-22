@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">v2rayNG</string>
+    <string name="app_name" translatable="false">Onering VPN</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>
@@ -280,11 +280,11 @@
     <string name="toast_tg_app_not_found">Telegram app not found</string>
     <string name="title_privacy_policy">Privacy policy</string>
     <string name="title_qr_code">QR code</string>
-    <string name="title_about">About</string>
-    <string name="title_source_code">Source code</string>
+    <string name="title_about">About Onering VPN</string>
+    <string name="title_source_code">Onering VPN Source code</string>
     <string name="title_oss_license">Open-source licenses</string>
     <string name="title_translators">Translators</string>
-    <string name="title_tg_channel">Telegram channel</string>
+    <string name="title_tg_channel">Onering VPN Telegram</string>
 
     <string name="title_pref_promotion">Promotion</string>
 

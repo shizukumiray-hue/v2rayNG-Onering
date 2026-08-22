@@ -65,8 +65,8 @@ fun AboutScreen(
     var showOssDialog by remember { mutableStateOf(false) }
 
     val libVersion = CoreNativeManager.getLibVersion()
-    val versionText = "v${BuildConfig.VERSION_NAME} ($libVersion)"
-    val appIdText = BuildConfig.APPLICATION_ID
+    val versionText = "Onering VPN v${BuildConfig.VERSION_NAME}\n($libVersion)"
+    val appIdText = "Powered by Xray-Core Onering\n${BuildConfig.APPLICATION_ID}"
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
