@@ -30,9 +30,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 @SuppressLint("VpnServicePolicy")
 class CoreVpnService : VpnService(), ServiceControl {
     private lateinit var mInterface: ParcelFileDescriptor
-    private var isRunning = false
+    @Volatile private var isRunning = false
     private var tun2SocksService: Tun2SocksControl? = null
     private val isStartingLock = AtomicBoolean(false)
+    private val interfaceLock = Any()
 
     override fun onCreate() {
         super.onCreate()
@@ -180,8 +181,16 @@ class CoreVpnService : VpnService(), ServiceControl {
 
         // Create a new interface using the builder and save the parameters
         try {
-            mInterface = builder.establish()!!
-            isRunning = true
+            val vpnInterface = builder.establish()
+            if (vpnInterface == null) {
+                LogUtil.e(AppConfig.TAG, "Failed to establish VPN interface: builder returned null")
+                stopAllService()
+                return false
+            }
+            synchronized(interfaceLock) {
+                mInterface = vpnInterface
+                isRunning = true
+            }
             return true
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to establish VPN interface", e)
@@ -323,7 +332,9 @@ class CoreVpnService : VpnService(), ServiceControl {
 //        val info = loadVpnNetworkInfo(configName, emptyInfo)!! + (lastNetworkInfo ?: emptyInfo)
 //        saveVpnNetworkInfo(configName, info)
         unlockStart()
-        isRunning = false
+        synchronized(interfaceLock) {
+            isRunning = false
+        }
 
         tun2SocksService?.stopTun2Socks()
         tun2SocksService = null
@@ -349,13 +360,15 @@ class CoreVpnService : VpnService(), ServiceControl {
                 LogUtil.w(AppConfig.TAG, "StartCore-VPN: Sleep interrupted", e)
             }
 
-            try {
-                if (::mInterface.isInitialized) {
-                    mInterface.close()
-                    LogUtil.i(AppConfig.TAG, "StartCore-VPN: VPN interface closed")
+            synchronized(interfaceLock) {
+                try {
+                    if (::mInterface.isInitialized) {
+                        mInterface.close()
+                        LogUtil.i(AppConfig.TAG, "StartCore-VPN: VPN interface closed")
+                    }
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "StartCore-VPN: Failed to close interface", e)
                 }
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "StartCore-VPN: Failed to close interface", e)
             }
         }
     }

@@ -53,6 +53,7 @@ object CoreServiceManager {
     private var networkMonitor: NetworkMonitor? = null
 
     private val isReloading = AtomicBoolean(false)
+    private var receiverRegistered = false
 
     /** Tun descriptor the core was started with, null in the proxy only and root run modes. */
     private var currentVpnInterface: ParcelFileDescriptor? = null
@@ -116,7 +117,10 @@ object CoreServiceManager {
         mFilter.addAction(Intent.ACTION_SCREEN_ON)
         mFilter.addAction(Intent.ACTION_SCREEN_OFF)
         mFilter.addAction(Intent.ACTION_USER_PRESENT)
-        ContextCompat.registerReceiver(service, mMsgReceive, mFilter, Utils.receiverFlags())
+        if (!receiverRegistered) {
+            ContextCompat.registerReceiver(service, mMsgReceive, mFilter, Utils.receiverFlags())
+            receiverRegistered = true
+        }
 
         currentVpnInterface = vpnInterface
         launchCore(service, vpnInterface)
@@ -151,8 +155,8 @@ object CoreServiceManager {
         if (dialerAddr.isNotNullEmpty()) {
             CoreNativeManager.reconcileBrowserDialer(dialerAddr)
         }
-        // Fix for Onering: startLoop only takes one argument
-        coreController.startLoop(result.content)
+        // Pass tunFd to startLoop for proper JNI signature
+        coreController.startLoop(result.content, tunFd)
 
         if (!isRunning()) {
             error("Core failed to start")
@@ -218,10 +222,13 @@ object CoreServiceManager {
         MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
         NotificationManager.cancelNotification()
 
-        try {
-            service.unregisterReceiver(mMsgReceive)
-        } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to unregister receiver", e)
+        if (receiverRegistered) {
+            try {
+                service.unregisterReceiver(mMsgReceive)
+                receiverRegistered = false
+            } catch (e: Exception) {
+                LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to unregister receiver", e)
+            }
         }
 
         return true

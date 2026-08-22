@@ -123,7 +123,18 @@ object NotificationManager {
     fun ensureForeground() {
         val service = getService() ?: return
         val notification = mBuilder?.build()
-        if (notification == null) showNotification(null) else service.startForeground(NOTIFICATION_ID, notification)
+        if (notification == null) {
+            showNotification(null)
+            // Verify notification was created successfully
+            val retryNotification = mBuilder?.build()
+            if (retryNotification == null) {
+                LogUtil.e(AppConfig.TAG, "Failed to create notification in ensureForeground")
+                return
+            }
+            service.startForeground(NOTIFICATION_ID, retryNotification)
+        } else {
+            service.startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     /**
