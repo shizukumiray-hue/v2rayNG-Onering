@@ -86,12 +86,13 @@ jobs:
         fileName: "android_keystore.jks"
         encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
 
-    - name: Build APK (All Architectures)
+    - name: Build APK (ARM architectures only)
       run: |
         cd ${{ github.workspace }}/V2rayNG
         echo "sdk.dir=${ANDROID_HOME}" > local.properties
         echo "" >> gradle.properties
-        # Build all 5 variants: arm64-v8a, armeabi-v7a, x86_64, x86, universal
+        # Build ARM variants only: align with compile-hevtun.sh which only builds ARM native libs
+        echo "ABI_FILTERS=armeabi-v7a;arm64-v8a" >> gradle.properties
         chmod 755 gradlew
         ./gradlew licenseFdroidReleaseReport
         ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
@@ -109,27 +110,6 @@ jobs:
       with:
         name: armeabi-v7a
         path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*armeabi-v7a*.apk
-
-    - name: Upload x86_64 APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: x86_64
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*x86_64*.apk
-
-    - name: Upload x86 APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: x86
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*x86*.apk
-
-    - name: Upload universal APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: universal
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*universal*.apk
 
   sign-and-release:
     needs: build
