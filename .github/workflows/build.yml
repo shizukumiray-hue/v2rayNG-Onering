@@ -88,12 +88,23 @@ jobs:
 
     - name: Download Geo Files
       run: |
-        echo "Downloading geoip.dat and geosite.dat..."
+        echo "Downloading geo files (geoip.dat, geosite.dat, geoip-only-cn-private.dat)..."
         cd ${{ github.workspace }}/V2rayNG/app/src/main/assets
-        curl -L -o geoip.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat"
-        curl -L -o geosite.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
-        ls -lh geoip.dat geosite.dat
-        echo "Geo files downloaded successfully"
+        
+        # Download geoip.dat with fallback
+        curl -L -o geoip.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat" || \
+        curl -L -o geoip.dat "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat"
+        
+        # Download geosite.dat with fallback
+        curl -L -o geosite.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" || \
+        curl -L -o geosite.dat "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat"
+        
+        # Download geoip-only-cn-private.dat with fallback
+        curl -L -o geoip-only-cn-private.dat "https://raw.githubusercontent.com/Loyalsoldier/geoip/release/geoip-only-cn-private.dat" || \
+        curl -L -o geoip-only-cn-private.dat "https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip-only-cn-private.dat"
+        
+        ls -lh geoip.dat geosite.dat geoip-only-cn-private.dat
+        echo "All geo files downloaded successfully"
 
     - name: Build APK (All Architectures)
       run: |
