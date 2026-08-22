@@ -60,9 +60,10 @@ jobs:
         path: ${{ github.workspace }}/libs
         key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
 
-    - name: Copy libhevtun
+    - name: Copy libhevtun to app jniLibs
       run: |
-        cp -r ${{ github.workspace }}/libs ${{ github.workspace }}/V2rayNG/app
+        mkdir -p ${{ github.workspace }}/V2rayNG/app/src/main/jniLibs
+        cp -r ${{ github.workspace }}/libs/* ${{ github.workspace }}/V2rayNG/app/src/main/jniLibs/
 
     - name: Download Onering libv2ray
       uses: robinraju/release-downloader@v1.13
