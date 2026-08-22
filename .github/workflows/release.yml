@@ -1,0 +1,144 @@
+name: Create Release with APKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v2.3.5)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        submodules: 'recursive'
+        fetch-depth: '0'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        log-accepted-android-sdk-licenses: false
+        cmdline-tools-version: '14742923'
+        packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+
+    - name: Install NDK
+      run: |
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+          --channel=0 \
+          --install "ndk;29.0.14206865"
+        echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+        sed -i '10i\
+        \
+            ndkVersion = "29.0.14206865"' ${{ github.workspace }}/V2rayNG/app/build.gradle.kts
+
+    - name: Restore cached libhevtun
+      id: cache-libhevtun-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/libs
+        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
+
+    - name: Build libhevtun
+      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+      run: |
+        bash compile-hevtun.sh
+    
+    - name: Save libhevtun
+      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/libs
+        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
+
+    - name: Copy libhevtun to app jniLibs
+      run: |
+        mkdir -p ${{ github.workspace }}/V2rayNG/app/src/main/jniLibs
+        cp -r ${{ github.workspace }}/libs/* ${{ github.workspace }}/V2rayNG/app/src/main/jniLibs/
+
+    - name: Download Onering libv2ray
+      uses: robinraju/release-downloader@v1.13
+      with:
+        repository: 'shizukumiray-hue/AndroidLibXrayLite-Onering'
+        tag: 'v26.8.20-onering'
+        fileName: 'libv2ray.aar'
+        out-file-path: V2rayNG/app/libs/
+
+    - name: Setup Java
+      uses: actions/setup-java@v5.7.0
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Decode Keystore
+      uses: timheuer/base64-to-file@v2.0.0
+      id: android_keystore
+      with:
+        fileName: "android_keystore.jks"
+        encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
+
+    - name: Build & Sign APKs
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew assembleRelease \
+          -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} \
+          -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} \
+          -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} \
+          -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
+    
+    - name: Prepare Release Files
+      run: |
+        mkdir -p release-files
+        find ${{ github.workspace }}/V2rayNG/app/build/outputs/apk -name "*.apk" -type f -exec cp {} release-files/ \;
+        cd release-files
+        sha256sum *.apk > OneringVPN_SHA256.txt
+        ls -lh
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ inputs.tag }}
+        name: "Onering VPN ${{ inputs.tag }}"
+        body: |
+          ## Onering VPN ${{ inputs.tag }} - Full Release
+          
+          **Build Date:** ${{ github.event.head_commit.timestamp }}
+          **Commit:** ${{ github.sha }}
+          
+          ### Downloads (5 APK Variants)
+          - **arm64-v8a**: 64-bit ARM (recommended for modern phones)
+          - **armeabi-v7a**: 32-bit ARM (older phones)
+          - **x86_64**: 64-bit x86 (tablets/emulators)
+          - **x86**: 32-bit x86
+          - **universal**: All architectures (largest size)
+          
+          ### Installation
+          1. **IMPORTANT:** Uninstall old v2rayNG/Onering VPN first
+          2. Download APK for your device architecture
+          3. Verify SHA256 checksum
+          4. Enable "Install from Unknown Sources"
+          5. Install APK
+          
+          ### What's Included
+          - ✅ Xray-Core-Onering v26.8.20
+          - ✅ Complete native libraries (all architectures)
+          - ✅ Bug fixes: 2 concurrency issues resolved
+          - ✅ Signed with official Onering keystore
+          
+          ### Technical Details
+          - Base: v2rayNG 2.3.5
+          - Min Android: 5.0 (API 21)
+          - Target Android: 37
+          - Native libs: libgojni.so + libhev-socks5-tunnel.so (all ABIs)
+        files: release-files/*
+        draft: false
+        prerelease: false
