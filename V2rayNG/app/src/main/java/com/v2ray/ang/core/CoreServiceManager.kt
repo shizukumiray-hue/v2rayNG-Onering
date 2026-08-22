@@ -44,7 +44,8 @@ object CoreServiceManager {
     private val coreController: CoreController = CoreNativeManager.newCoreController(CoreCallback())
     private val mMsgReceive = ReceiveMessageHandler()
     private var currentConfig: ProfileItem? = null
-    private var processFinder: XrayProcessFinder? = null
+    // ProcessFinder not available in Onering
+    // private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
     private var networkMonitor: NetworkMonitor? = null
 
