@@ -16,6 +16,9 @@ object CertificateFingerprintManager {
 
     fun fetchForManualFill(profile: ProfileItem): String? {
         val request = buildRequest(profile) ?: return null
+        
+        // Commented for Onering compatibility - fetchQuicCertSha256 and fetchTlsCertSha256 not available
+        /*
         val result = if (profile.configType == EConfigType.HYSTERIA2) {
             fetch("quic", request) { Libv2ray.fetchQuicCertSha256(it) }
         } else {
@@ -26,6 +29,11 @@ object CertificateFingerprintManager {
             ?.takeIf { it.error.isBlank() }
             ?.sha256
             ?.takeIf { it.isNotBlank() }
+        */
+        
+        // Return null for now (Onering doesn't support certificate fingerprint fetching)
+        LogUtil.d(AppConfig.TAG, "Certificate fingerprint fetch skipped (Onering compatibility)")
+        return null
     }
 
     private fun buildRequest(profile: ProfileItem): CertSha256Request? {

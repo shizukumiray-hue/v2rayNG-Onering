@@ -45,8 +45,9 @@ object CoreNativeManager {
 
     fun reconcileBrowserDialer(dialerAddr: String) {
         try {
-            Libv2ray.reconcileBrowserDialer(dialerAddr)
-            LogUtil.i(AppConfig.TAG, "Browser dialer reconciled successfully with address: $dialerAddr")
+            // Commented out for Onering compatibility
+            // Libv2ray.reconcileBrowserDialer(dialerAddr)
+            LogUtil.i(AppConfig.TAG, "Browser dialer reconcile skipped (Onering compatibility)")
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to reconcile browser dialer with address: $dialerAddr", e)
         }

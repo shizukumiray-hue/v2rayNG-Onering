@@ -35,7 +35,7 @@ import com.v2ray.ang.extension.delay
 import kotlinx.coroutines.launch
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
-import libv2ray.ProcessFinder
+// import libv2ray.ProcessFinder // Commented for Onering compatibility
 import java.lang.ref.SoftReference
 import java.net.InetSocketAddress
 
@@ -59,10 +59,11 @@ object CoreServiceManager {
             field = value
             val service = value?.get()?.getService()
             CoreNativeManager.initCoreEnv(service)
-            if (service != null && processFinder == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                processFinder = XrayProcessFinder(service)
-                coreController.registerProcessFinder(processFinder)
-            }
+            // ProcessFinder registration commented for Onering compatibility
+            // if (service != null && processFinder == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            //     processFinder = XrayProcessFinder(service)
+            //     coreController.registerProcessFinder(processFinder)
+            // }
         }
 
     /**
@@ -147,7 +148,8 @@ object CoreServiceManager {
         if (dialerAddr.isNotNullEmpty()) {
             CoreNativeManager.reconcileBrowserDialer(dialerAddr)
         }
-        coreController.startLoop(result.content, tunFd)
+        // Fix for Onering: startLoop only takes one argument
+        coreController.startLoop(result.content)
 
         if (!isRunning()) {
             error("Core failed to start")
@@ -279,8 +281,13 @@ object CoreServiceManager {
         // The stats manager is gone once the core stops, querying it then reaches into freed state.
         if (!isRunning()) return emptyList()
 
-        val payload = coreController.queryAllOutboundTrafficStats()
-
+        // Commented for Onering compatibility - API not available
+        // val payload = coreController.queryAllOutboundTrafficStats()
+        
+        // Return empty list for now (Onering doesn't support this API)
+        return emptyList()
+        
+        /* Original code - commented for Onering
         val result = ArrayList<OutboundTrafficStat>()
 
         payload.split(';').forEach { entry ->
@@ -401,7 +408,10 @@ object CoreServiceManager {
     /**
      * Process finder implementation for Xray core.
      * Uses ConnectivityManager to find the owning UID of a connection based on network parameters.
+     * 
+     * COMMENTED FOR ONERING COMPATIBILITY - ProcessFinder API not available
      */
+    /* 
     private class XrayProcessFinder(context: Context) : ProcessFinder {
         private val cm: ConnectivityManager? = context.getSystemService(ConnectivityManager::class.java)
 
@@ -434,6 +444,7 @@ object CoreServiceManager {
             }
         }
     }
+    */ // End of XrayProcessFinder comment block for Onering compatibility
 
     /**
      * Broadcast receiver for handling messages sent to the service.
