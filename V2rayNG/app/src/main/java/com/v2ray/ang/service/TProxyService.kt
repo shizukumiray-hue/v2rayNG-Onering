@@ -19,6 +19,26 @@ class TProxyService(
     private val restartCallback: () -> Unit
 ) : Tun2SocksControl {
     companion object {
+        @Volatile
+        private var libraryLoaded = false
+
+        private fun ensureLibraryLoaded() {
+            if (!libraryLoaded) {
+                synchronized(this) {
+                    if (!libraryLoaded) {
+                        try {
+                            System.loadLibrary("hev-socks5-tunnel")
+                            libraryLoaded = true
+                            LogUtil.i(AppConfig.TAG, "libhev-socks5-tunnel.so loaded successfully")
+                        } catch (e: UnsatisfiedLinkError) {
+                            LogUtil.e(AppConfig.TAG, "Failed to load libhev-socks5-tunnel.so: ${e.message}")
+                            throw e
+                        }
+                    }
+                }
+            }
+        }
+
         @JvmStatic
         @Suppress("FunctionName")
         private external fun TProxyStartService(configPath: String, fd: Int): Boolean
@@ -34,10 +54,6 @@ class TProxyService(
         @JvmStatic
         @Suppress("FunctionName")
         private external fun TProxyGetStats(): LongArray?
-
-        init {
-            System.loadLibrary("hev-socks5-tunnel")
-        }
     }
 
     /**
@@ -45,6 +61,9 @@ class TProxyService(
      */
     override fun startTun2Socks() {
 //        LogUtil.i(AppConfig.TAG, "Starting HevSocks5Tunnel via JNI")
+
+        // Load library on-demand, not in static init
+        ensureLibraryLoaded()
 
         val configContent = buildConfig()
         val configFile = File(context.filesDir, "hev-socks5-tunnel.yaml").apply {
