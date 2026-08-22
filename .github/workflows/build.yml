@@ -86,6 +86,15 @@ jobs:
         fileName: "android_keystore.jks"
         encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
 
+    - name: Download Geo Files
+      run: |
+        echo "Downloading geoip.dat and geosite.dat..."
+        cd ${{ github.workspace }}/V2rayNG/app/src/main/assets
+        curl -L -o geoip.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat"
+        curl -L -o geosite.dat "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+        ls -lh geoip.dat geosite.dat
+        echo "Geo files downloaded successfully"
+
     - name: Build APK (All Architectures)
       run: |
         cd ${{ github.workspace }}/V2rayNG
