@@ -174,6 +174,7 @@ class DialerNativeService : IDialerService {
 
         val oldClient = client
         client = null
+        oldClient?.dispatcher?.executorService?.shutdown()
         oldClient?.dispatcher?.cancelAll()
         oldClient?.connectionPool?.evictAll()
     }

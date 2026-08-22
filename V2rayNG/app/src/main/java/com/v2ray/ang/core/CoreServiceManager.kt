@@ -33,6 +33,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.v2ray.ang.extension.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 // import libv2ray.ProcessFinder // Commented for Onering compatibility
@@ -157,18 +159,18 @@ object CoreServiceManager {
         }
 
         if (browserDialer != null) {
-            browserDialer!!.stop()
+            browserDialer?.stop()
             browserDialer = null
         }
         when (dialerMode) {
             BrowserDialerMode.OKHTTP -> {
                 browserDialer = DialerNativeService()
-                browserDialer!!.start(service, dialerAddr)
+                browserDialer?.start(service, dialerAddr)
             }
 
             BrowserDialerMode.WEBVIEW -> {
                 browserDialer = DialerWebviewService()
-                browserDialer!!.start(service, dialerAddr)
+                browserDialer?.start(service, dialerAddr)
             }
 
             else -> {}
@@ -191,14 +193,17 @@ object CoreServiceManager {
 
         networkMonitor?.unregister()
         networkMonitor = null
+        currentVpnInterface?.close()
         currentVpnInterface = null
 
         if (isRunning()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    coreController.stopLoop()
-                } catch (e: Exception) {
-                    LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to stop V2Ray loop", e)
+            runBlocking {
+                withContext(Dispatchers.IO) {
+                    try {
+                        coreController.stopLoop()
+                    } catch (e: Exception) {
+                        LogUtil.e(AppConfig.TAG, "StartCore-Manager: Failed to stop V2Ray loop", e)
+                    }
                 }
             }
         }
@@ -206,7 +211,7 @@ object CoreServiceManager {
         // Close existing browser dialer
         CoreNativeManager.reconcileBrowserDialer("")
         if (browserDialer != null) {
-            browserDialer!!.stop()
+            browserDialer?.stop()
             browserDialer = null
         }
 
@@ -248,6 +253,7 @@ object CoreServiceManager {
      *
      * @return True if the core is running again.
      */
+    @Synchronized
     private fun reloadCore(): Boolean {
         if (isReloading) return false
         val service = getService() ?: return false
