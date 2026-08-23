@@ -155,12 +155,16 @@ object CoreServiceManager {
         if (dialerAddr.isNotNullEmpty()) {
             CoreNativeManager.reconcileBrowserDialer(dialerAddr)
         }
-        // Try with 2 parameters first (new AAR), fallback to 1 parameter (old AAR)
+        // Use reflection to support both 1-param and 2-param startLoop signatures
         try {
-            coreController.startLoop(result.content, tunFd)
-        } catch (e: NoSuchMethodError) {
-            LogUtil.w(AppConfig.TAG, "startLoop with tunFd not available, using single-parameter version")
-            coreController.startLoop(result.content)
+            // Try 2-parameter version first (newer AAR with tunFd support)
+            val method = coreController.javaClass.getMethod("startLoop", String::class.java, Int::class.javaPrimitiveType)
+            method.invoke(coreController, result.content, tunFd)
+        } catch (e: NoSuchMethodException) {
+            // Fallback to 1-parameter version (older AAR)
+            LogUtil.w(AppConfig.TAG, "startLoop(String, Int) not available, using startLoop(String)")
+            val method = coreController.javaClass.getMethod("startLoop", String::class.java)
+            method.invoke(coreController, result.content)
         }
 
         if (!isRunning()) {
