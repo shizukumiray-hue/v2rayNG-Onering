@@ -17,23 +17,34 @@ object CertificateFingerprintManager {
     fun fetchForManualFill(profile: ProfileItem): String? {
         val request = buildRequest(profile) ?: return null
         
-        // Commented for Onering compatibility - fetchQuicCertSha256 and fetchTlsCertSha256 not available
-        /*
-        val result = if (profile.configType == EConfigType.HYSTERIA2) {
-            fetch("quic", request) { Libv2ray.fetchQuicCertSha256(it) }
-        } else {
-            fetch("tls", request) { Libv2ray.fetchTlsCertSha256(it) }
-        }
+        // Try to fetch using the libv2ray API with reflection to handle missing methods
+        try {
+            val methodName = if (profile.configType == EConfigType.HYSTERIA2) {
+                "fetchQuicCertSha256"
+            } else {
+                "fetchTlsCertSha256"
+            }
+            
+            // Check if the method exists in Libv2ray
+            val method = Libv2ray.javaClass.getMethod(methodName, String::class.java)
+            val result = fetch(
+                if (profile.configType == EConfigType.HYSTERIA2) "quic" else "tls",
+                request
+            ) { jsonRequest ->
+                method.invoke(null, jsonRequest) as String
+            }
 
-        return result
-            ?.takeIf { it.error.isBlank() }
-            ?.sha256
-            ?.takeIf { it.isNotBlank() }
-        */
-        
-        // Return null for now (Onering doesn't support certificate fingerprint fetching)
-        LogUtil.d(AppConfig.TAG, "Certificate fingerprint fetch skipped (Onering compatibility)")
-        return null
+            return result
+                ?.takeIf { it.error.isBlank() }
+                ?.sha256
+                ?.takeIf { it.isNotBlank() }
+        } catch (e: NoSuchMethodException) {
+            LogUtil.w(AppConfig.TAG, "Certificate fingerprint fetch API not available in libv2ray (Onering build)")
+            return null
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Certificate fingerprint fetch failed", e)
+            return null
+        }
     }
 
     private fun buildRequest(profile: ProfileItem): CertSha256Request? {

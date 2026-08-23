@@ -289,13 +289,56 @@ object CoreServiceManager {
     /**
      * Queries and resets all outbound traffic counters in one core call.
      * Go side format: tag,direction,value;tag,direction,value;
+     * 
+     * NOTE: Onering's libv2ray.aar does not include queryStats or traffic statistics API.
+     * This functionality requires the full xray-core with stats API enabled.
+     * Speed display feature will not work until libv2ray.aar is updated with stats support.
      */
     fun queryAllOutboundTrafficStats(): List<OutboundTrafficStat> {
         // The stats manager is gone once the core stops, querying it then reaches into freed state.
         if (!isRunning()) return emptyList()
 
-        // Onering doesn't support queryAllOutboundTrafficStats API
-        return emptyList()
+        // Try to query traffic stats from libv2ray CoreController
+        try {
+            // Check if queryStats method exists in the current libv2ray build
+            val method = coreController.javaClass.getMethod("queryStats", String::class.java, Boolean::class.javaPrimitiveType)
+            val statsJson = method.invoke(coreController, "", true) as? String
+            
+            if (statsJson.isNullOrBlank()) {
+                LogUtil.d(AppConfig.TAG, "CoreServiceManager: No traffic stats available")
+                return emptyList()
+            }
+
+            // Parse the stats JSON and convert to OutboundTrafficStat list
+            val statsList = mutableListOf<OutboundTrafficStat>()
+            try {
+                // Expected format: {"tag1>>>uplink": value1, "tag1>>>downlink": value2, ...}
+                val statsMap = com.v2ray.ang.util.JsonUtil.fromJsonSafe(
+                    statsJson, 
+                    object : com.google.gson.reflect.TypeToken<Map<String, Long>>() {}.type
+                ) as? Map<String, Long>
+                
+                statsMap?.forEach { (key, value) ->
+                    val parts = key.split(">>>")
+                    if (parts.size == 2) {
+                        val tag = parts[0]
+                        val direction = parts[1]
+                        statsList.add(OutboundTrafficStat(tag, direction, value))
+                    }
+                }
+                LogUtil.d(AppConfig.TAG, "CoreServiceManager: Parsed ${statsList.size} traffic stats")
+            } catch (e: Exception) {
+                LogUtil.e(AppConfig.TAG, "CoreServiceManager: Failed to parse traffic stats JSON", e)
+            }
+            
+            return statsList
+        } catch (e: NoSuchMethodException) {
+            LogUtil.w(AppConfig.TAG, "CoreServiceManager: queryStats method not available in libv2ray (Onering build)")
+            return emptyList()
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "CoreServiceManager: Failed to query traffic stats", e)
+            return emptyList()
+        }
     }
 
     /**
