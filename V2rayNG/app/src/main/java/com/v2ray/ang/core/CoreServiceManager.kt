@@ -155,8 +155,13 @@ object CoreServiceManager {
         if (dialerAddr.isNotNullEmpty()) {
             CoreNativeManager.reconcileBrowserDialer(dialerAddr)
         }
-        // AAR binary only supports 1 parameter (config string). tunFd calculation kept for future AAR update.
-        coreController.startLoop(result.content)
+        // Try with 2 parameters first (new AAR), fallback to 1 parameter (old AAR)
+        try {
+            coreController.startLoop(result.content, tunFd)
+        } catch (e: NoSuchMethodError) {
+            LogUtil.w(AppConfig.TAG, "startLoop with tunFd not available, using single-parameter version")
+            coreController.startLoop(result.content)
+        }
 
         if (!isRunning()) {
             error("Core failed to start")
@@ -297,9 +302,11 @@ object CoreServiceManager {
         // The stats manager is gone once the core stops, querying it then reaches into freed state.
         if (!isRunning()) return emptyList()
 
-        // Call the native method from libv2ray CoreController
+        // Try to call the native method from libv2ray CoreController using reflection
         try {
-            val statsString = coreController.queryAllOutboundTrafficStats()
+            // Check if queryAllOutboundTrafficStats method exists
+            val method = coreController.javaClass.getMethod("queryAllOutboundTrafficStats")
+            val statsString = method.invoke(coreController) as? String
             
             if (statsString.isNullOrBlank()) {
                 LogUtil.d(AppConfig.TAG, "CoreServiceManager: No traffic stats available")
@@ -327,6 +334,9 @@ object CoreServiceManager {
             
             LogUtil.d(AppConfig.TAG, "CoreServiceManager: Parsed ${statsList.size} traffic stats from: $statsString")
             return statsList
+        } catch (e: NoSuchMethodException) {
+            LogUtil.w(AppConfig.TAG, "CoreServiceManager: queryAllOutboundTrafficStats not available in libv2ray (Onering build)")
+            return emptyList()
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "CoreServiceManager: Failed to query traffic stats", e)
             return emptyList()

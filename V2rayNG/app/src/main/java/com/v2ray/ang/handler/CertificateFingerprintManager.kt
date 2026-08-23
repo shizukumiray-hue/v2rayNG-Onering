@@ -26,12 +26,12 @@ object CertificateFingerprintManager {
             }
             
             // Check if the method exists in Libv2ray
-            val method = Libv2ray.javaClass.getMethod(methodName, String::class.java)
+            val method = Libv2ray::class.java.getMethod(methodName, String::class.java)
             val result = fetch(
                 if (profile.configType == EConfigType.HYSTERIA2) "quic" else "tls",
                 request
             ) { jsonRequest ->
-                method.invoke(null, jsonRequest) as String
+                method.invoke(null, jsonRequest) as? String ?: ""
             }
 
             return result
