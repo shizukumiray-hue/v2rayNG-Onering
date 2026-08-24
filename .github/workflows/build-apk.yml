@@ -33,7 +33,7 @@ jobs:
           ./gradlew assemblePlaystoreRelease --no-daemon
       
       - name: Upload APK artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: v2rayNG-Onering-APKs
           path: V2rayNG/app/build/outputs/apk/playstore/release/*.apk
