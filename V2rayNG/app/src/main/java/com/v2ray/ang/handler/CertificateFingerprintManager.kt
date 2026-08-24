@@ -16,29 +16,26 @@ object CertificateFingerprintManager {
 
     fun fetchForManualFill(profile: ProfileItem): String? {
         val request = buildRequest(profile) ?: return null
-        
-        // Try to fetch using the libv2ray API with reflection to handle missing methods
+
+        // Native APIs exist in the Onering AAR (javap libv2ray.Libv2ray); call directly.
         try {
-            val methodName = if (profile.configType == EConfigType.HYSTERIA2) {
-                "fetchQuicCertSha256"
-            } else {
-                "fetchTlsCertSha256"
-            }
-            
-            // Check if the method exists in Libv2ray
-            val method = Libv2ray::class.java.getMethod(methodName, String::class.java)
+            Libv2ray.touch()
             val result = fetch(
                 if (profile.configType == EConfigType.HYSTERIA2) "quic" else "tls",
                 request
             ) { jsonRequest ->
-                method.invoke(null, jsonRequest) as? String ?: ""
+                if (profile.configType == EConfigType.HYSTERIA2) {
+                    Libv2ray.fetchQuicCertSha256(jsonRequest)
+                } else {
+                    Libv2ray.fetchTlsCertSha256(jsonRequest)
+                }
             }
 
             return result
                 ?.takeIf { it.error.isBlank() }
                 ?.sha256
                 ?.takeIf { it.isNotBlank() }
-        } catch (e: NoSuchMethodException) {
+        } catch (e: UnsatisfiedLinkError) {
             LogUtil.w(AppConfig.TAG, "Certificate fingerprint fetch API not available in libv2ray (Onering build)")
             return null
         } catch (e: Exception) {

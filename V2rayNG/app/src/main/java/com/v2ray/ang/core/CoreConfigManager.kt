@@ -98,22 +98,18 @@ object CoreConfigManager {
 
         val json = JsonUtil.parseString(raw)?.takeIf { it.isJsonObject }?.asJsonObject ?: return result
 
-        // Inject or remove traffic statistics configuration based on user preference
-        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) == true) {
-            if (!json.has("stats")) {
-                json.add("stats", JsonObject())
-            }
-            if (!json.has("policy")) {
-                val policyObj = JsonObject()
-                val systemObj = JsonObject()
-                systemObj.addProperty("statsOutboundUplink", true)
-                systemObj.addProperty("statsOutboundDownlink", true)
-                policyObj.add("system", systemObj)
-                json.add("policy", policyObj)
-            }
-        } else {
-            json.remove("stats")
-            json.remove("policy")
+        // Always keep traffic statistics enabled so speed display works (notification
+        // visibility itself is gated by PREF_SPEED_ENABLED in NotificationManager).
+        if (!json.has("stats")) {
+            json.add("stats", JsonObject())
+        }
+        if (!json.has("policy")) {
+            val policyObj = JsonObject()
+            val systemObj = JsonObject()
+            systemObj.addProperty("statsOutboundUplink", true)
+            systemObj.addProperty("statsOutboundDownlink", true)
+            policyObj.add("system", systemObj)
+            json.add("policy", policyObj)
         }
 
         if (!needTun()) {
@@ -704,13 +700,15 @@ object CoreConfigManager {
     }
 
     /**
-     * Remove speed-test runtime sections when the feature is disabled.
+     * Keep the stats + policy sections from the template in the config at all times.
+     * ponytail: upstream v2rayNG always ships stats/policy and only gates the speed
+     * *notification* display (PREF_SPEED_ENABLED); stripping them here starved the
+     * Go counters so queryAllOutboundTrafficStats() always returned "".
+     * Ceiling: if battery cost of always-on counters is proven, re-introduce a
+     * dedicated pref that gates both config and notification together.
      */
     private fun applySpeedDisabled(v2rayConfig: V2rayConfig) {
-        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) != true) {
-            v2rayConfig.stats = null
-            v2rayConfig.policy = null
-        }
+        // no-op: traffic counters must stay enabled for speed display to work
     }
 
     /*

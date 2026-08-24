@@ -103,9 +103,10 @@ object CoreServiceManager {
             doStartCoreLoop(service, vpnInterface)
             return true
         } catch (e: Exception) {
-            val message = e.message?.takeUnless { it.isBlank() } ?: e.javaClass.simpleName
-            LogUtil.e(AppConfig.TAG, "StartCore-Manager: $message", e)
-            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, message)
+            // Prefer the unwrapped root cause (Go-side error) over the reflective wrapper name
+            val causeMessage = sequenceOf(e.cause?.message, e.message).firstOrNull { !it.isNullOrBlank() } ?: e.javaClass.simpleName
+            LogUtil.e(AppConfig.TAG, "StartCore-Manager: $causeMessage", e)
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, causeMessage)
             NotificationManager.cancelNotification()
             return false
         }
@@ -165,6 +166,9 @@ object CoreServiceManager {
             LogUtil.w(AppConfig.TAG, "startLoop(String, Int) not available, using startLoop(String)")
             val method = coreController.javaClass.getMethod("startLoop", String::class.java)
             method.invoke(coreController, result.content)
+        } catch (e: java.lang.reflect.InvocationTargetException) {
+            // Unwrap so the real Go-side error (config parse, core start failure) reaches the UI
+            throw e.cause as? Exception ?: e
         }
 
         if (!isRunning()) {
